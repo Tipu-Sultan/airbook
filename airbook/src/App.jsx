@@ -12,6 +12,7 @@ const Book = lazy(() => import('./pages/Book'));
 const Flights = lazy(() => import('./pages/Flights'));
 const FlightDetails = lazy(() => import('./pages/FlightDetails'));
 const BookingOrderDetails = lazy(() => import('./pages/BookingOrderDetails'));
+import { Toaster } from "@/components/ui/sonner"
 
 const Profile = lazy(() => import('./pages/Profile'));
 
@@ -20,6 +21,7 @@ function App() {
     <AuthProvider>
       <Router> {/* Move Router here to wrap Navbar and Routes */}
         <div className="min-h-screen bg-gray-50">
+          <Toaster />
           <Navbar />
           <main className="container mx-auto p-6">
             <Suspense fallback={<Loading />}>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { IndianRupee, Users, Plane } from 'lucide-react';
 
-function FlightDetails({ flight }) {
+function FlightDetails({ flight,totalAvailableSeats }) {
   if (!flight) {
     return (
       <p className="text-gray-600 text-sm sm:text-base text-center">
@@ -31,7 +31,7 @@ function FlightDetails({ flight }) {
       <p className="text-gray-700 text-sm sm:text-base flex items-center">
         <Users className="h-4 w-4 mr-1 text-blue-600" />
         <span className="font-medium">Available Seats:</span>{' '}
-        {flight.available_seats}
+        {totalAvailableSeats}
       </p>
     </div>
   );

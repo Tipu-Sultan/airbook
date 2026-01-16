@@ -96,7 +96,6 @@ class SeatModel {
       `,
       [flightId, seatNumber]
     );
-    console.log('seats', seats);
     if (!seats[0]) {
       throw new ConflictError('Seat is unavailable or does not exist');
     }

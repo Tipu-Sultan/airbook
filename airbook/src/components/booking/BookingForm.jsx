@@ -1,74 +1,91 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import { createOrder, verifyPayment, deleteBooking } from '../../services/api';
-import { toast } from '@/hooks/use-toast';
+// Updated BookingForm.jsx - Single payment for multiple seats
+// - Assumes backend now handles bulk booking (seats array in payload) and returns single booking_id for the group
+// - Single order creation and single payment
+// - Cleanup (delete group booking) on failure/dismiss
+// - Toasts for success/error
+// - Button shows total price
 
-function BookingForm({ onSubmit, disabled, bookingStatus, children, bookingData, navigate }) {
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { createOrder, verifyPayment, deleteBooking } from "../../services/api";
+import { toast } from "sonner";
+
+function BookingForm({
+  onSubmit,
+  disabled,
+  bookingStatus,
+  children,
+  navigate,
+  flightNumber,
+  count = 1,
+  totalPrice = 0,
+}) {
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  const handlePayment = async (order, bookingId) => {
-    const options = {
-      key: 'rzp_test_ioXrWPn61McM3g', // Razorpay test key
-      amount: order.amount,
-      currency: order.currency,
-      name: 'Airbook',
-      description: `Booking for Flight ${bookingData.flightNumber}`,
-      order_id: order.id,
-      handler: async (response) => {
-        try {
-          setPaymentLoading(true);
-          const verificationData = {
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          };
-          const result = await verifyPayment(bookingId, verificationData);
-          toast({
-            title: 'Payment Successful',
-            description: 'Your booking has been confirmed!',
-            variant: 'success',
-          });
-          console.log('Payment verified:', result);
-          navigate(`/booking-order/${result.booking.booking_id}`);
-        } catch (err) {
-          toast({
-            title: 'Payment Verification Failed',
-            description: err.message || 'Please try again.',
-            variant: 'destructive',
-          });
-          try {
-            await deleteBooking(bookingId);
-          } catch (deleteErr) {
-            console.error('Failed to delete booking:', deleteErr.message);
-          }
-        } finally {
-          setPaymentLoading(false);
-        }
-      },
-      prefill: {
-        email: bookingData.userEmail || 'user@example.com',
-        contact: bookingData.userPhone || '9999999999',
-      },
-      theme: {
-        color: '#2563eb',
-      },
-    };
+  const handlePayment = (order, bookingId) => {
+    return new Promise((resolve) => {
+      const options = {
+        key: "rzp_test_ioXrWPn61McM3g",
+        amount: order.amount,
+        currency: order.currency,
+        name: "Airbook",
+        description: `Payment for ${count} seat${
+          count > 1 ? "s" : ""
+        } on flight ${flightNumber}`,
+        order_id: order.id,
 
-    const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', async () => {
-      toast({
-        title: 'Payment Failed',
-        description: 'Payment was not successful. Booking has been canceled.',
-        variant: 'destructive',
+        handler: async (response) => {
+          try {
+            const verificationData = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            };
+
+            await verifyPayment(bookingId, verificationData);
+
+            toast.success("Payment Successful!", {
+              description: `Your booking for ${count} seat${
+                count > 1 ? "s" : ""
+              } has been confirmed.`,
+            });
+
+            resolve({ status: "success" });
+          } catch (err) {
+            toast.error(err.message || "Payment verification failed");
+            setPaymentLoading(false);
+            resolve({ status: "failed" }); // 👈 resolve, NOT reject
+          }
+        },
+
+        prefill: {
+          email: "user@example.com",
+          contact: "9999999999",
+        },
+
+        theme: { color: "#2563eb" },
+
+        modal: {
+          ondismiss: async () => {
+            toast.info("Payment cancelled. Seat released.");
+            await deleteBooking(bookingId);
+            setPaymentLoading(false);
+            resolve({ status: "dismissed" }); // 👈 NO reject
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", async () => {
+        toast.error("Payment failed. Seat released.");
+        setPaymentLoading(false);
+        resolve({ status: "failed" }); // 👈 NO reject
       });
-      try {
-        await deleteBooking(bookingId);
-      } catch (deleteErr) {
-        console.error('Failed to delete booking:', deleteErr.message);
-      }
+
+      rzp.open();
     });
-    rzp.open();
   };
 
   const handleSubmit = async (e) => {
@@ -77,34 +94,48 @@ function BookingForm({ onSubmit, disabled, bookingStatus, children, bookingData,
 
     try {
       setPaymentLoading(true);
-      const booking = await onSubmit(); // Create booking (pending status)
-      const order = await createOrder(booking.booking_id);
-      await handlePayment(order, booking.booking_id);
+
+      const booking = await onSubmit();
+      const order = await createOrder(booking.booking.booking_id);
+
+      const paymentResult = await handlePayment(
+        order,
+        booking.booking.booking_id
+      );
+
+      if (paymentResult.status === "success") {
+        toast.success("All Seats Booked!", {
+          description: `${count} seat${
+            count > 1 ? "s" : ""
+          } successfully booked.`,
+        });
+
+        navigate(`/booking-order/${booking.booking.booking_id}`);
+      }
+
+      // dismissed / failed → stay on same page
     } catch (err) {
-      toast({
-        title: 'Booking Error',
-        description: err.message || 'Failed to initiate booking.',
-        variant: 'destructive',
-      });
+      toast.error(err.message || "Booking failed. Please try again.");
+    } finally {
       setPaymentLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-8">
       {children}
       <Button
         type="submit"
-        className="w-full h-10 sm:h-12 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-semibold rounded-lg shadow-md transition-all text-sm sm:text-base"
-        disabled={disabled || paymentLoading || bookingStatus === 'pending'}
+        className="w-full h-12 sm:h-14 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-bold rounded-lg shadow-lg text-lg"
+        disabled={disabled || paymentLoading}
       >
-        {paymentLoading || bookingStatus === 'pending' ? (
+        {paymentLoading ? (
           <span className="flex items-center">
-            <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin mr-2" />
-            Processing...
+            <Loader2 className="h-6 w-6 animate-spin mr-3" />
+            Processing Payment...
           </span>
         ) : (
-          'Confirm Booking'
+          <>Confirm Booking & Pay ₹{Math.round(totalPrice)}</>
         )}
       </Button>
     </form>

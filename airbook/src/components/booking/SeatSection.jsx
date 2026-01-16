@@ -1,7 +1,11 @@
+// Corrected SeatSection.jsx (updated for multiple seat selection)
+// Props changed: selectedSeat → selectedSeats (array of seat_number strings)
+// This matches the multiple selection implementation
+
 import React from 'react';
 import SeatGrid from './SeatGrid';
 
-function SeatSection({ classType, seats, onSeatClick, selectedSeat, basePrice }) {
+function SeatSection({ classType, seats, onSeatClick, selectedSeats = [], basePrice }) {
   const classConfig = {
     first: {
       bg: 'bg-amber-50',
@@ -23,7 +27,7 @@ function SeatSection({ classType, seats, onSeatClick, selectedSeat, basePrice })
     },
   };
 
-  const config = classConfig[classType];
+  const config = classConfig[classType] || classConfig.economy; // fallback
 
   return (
     <div className={`relative ${config.bg} p-4 sm:p-6 rounded-lg`}>
@@ -37,7 +41,7 @@ function SeatSection({ classType, seats, onSeatClick, selectedSeat, basePrice })
           seats={seats}
           classType={classType}
           onSeatClick={onSeatClick}
-          selectedSeat={selectedSeat}
+          selectedSeats={selectedSeats}
           basePrice={basePrice}
         />
       </div>

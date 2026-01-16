@@ -1,59 +1,3 @@
-CREATE DATABASE airplane_booking;
-USE airplane_booking;
-
--- Users table for authentication and user management
-CREATE TABLE users (
-    id INT AUTO_INCREMENT UNIQUE,
-    user_id VARCHAR PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Flights table for flight details
-CREATE TABLE flights (
-    flight_id INT AUTO_INCREMENT PRIMARY KEY,
-    flight_number VARCHAR(20) UNIQUE NOT NULL,
-    departure_city VARCHAR(100) NOT NULL,
-    arrival_city VARCHAR(100) NOT NULL,
-    departure_time DATETIME NOT NULL,
-    arrival_time DATETIME NOT NULL,
-    total_seats INT NOT NULL,
-    available_seats INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Seats table for seat assignments
-CREATE TABLE seats (
-    seat_id INT AUTO_INCREMENT PRIMARY KEY,
-    flight_id INT NOT NULL,
-    seat_number VARCHAR(10) NOT NULL,
-    is_booked BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (flight_id) REFERENCES flights(flight_id) ON DELETE CASCADE
-);
-
--- Bookings table for user bookings
-CREATE TABLE bookings (
-    id INT AUTO_INCREMENT UNIQUE,
-    booking_id VARCHAR(255) PRIMARY KEY,
-    user_id VARCHAR(50) NOT NULL,
-    flight_id VARCHAR(50) NOT NULL,
-    seat_id INT NOT NULL,
-    seat_number VARCHAR(10) NOT NULL,
-    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('confirmed', 'canceled', 'pending') DEFAULT 'pending',
-    UNIQUE (seat_id, flight_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (flight_id) REFERENCES flights(flight_id) ON DELETE CASCADE,
-    FOREIGN KEY (seat_id) REFERENCES seats(seat_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_flights_departure_city ON flights(departure_city);
-CREATE INDEX idx_flights_arrival_city ON flights(arrival_city);
-CREATE INDEX idx_seats_flight_id ON seats(flight_id);
 
 CREATE DATABASE airbook;
 USE airbook;
@@ -117,17 +61,26 @@ CREATE TABLE bookings (
     booking_id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(50) NOT NULL,
     flight_id INT NOT NULL,
+    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('confirmed', 'canceled', 'pending') DEFAULT 'pending',
+    total_price DECIMAL(10, 2) NOT NULL, -- Final price at booking time
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (flight_id) REFERENCES flights(flight_id) ON DELETE CASCADE,
+    UNIQUE (flight_id)
+);
+
+-- First, create the new table to record multiple seats for a single booking (group booking)
+CREATE TABLE booking_seats (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id VARCHAR(255) NOT NULL,
     seat_id INT NOT NULL,
     seat_number VARCHAR(10) NOT NULL,
     seat_class_id INT NOT NULL,
-    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('confirmed', 'canceled', 'pending') DEFAULT 'pending',
-    price DECIMAL(10, 2) NOT NULL, -- Final price at booking time
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (flight_id) REFERENCES flights(flight_id) ON DELETE CASCADE,
-    FOREIGN KEY (seat_id) REFERENCES seats(seat_id) ON DELETE CASCADE,
+    price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (seat_id) REFERENCES seats(seat_id) ON DELETE RESTRICT,
     FOREIGN KEY (seat_class_id) REFERENCES seat_classes(seat_class_id) ON DELETE RESTRICT,
-    UNIQUE (seat_id, flight_id)
+    UNIQUE KEY unique_seat_in_booking (booking_id, seat_id)
 );
 
 -- Indexes for performance
@@ -135,5 +88,4 @@ CREATE INDEX idx_routes_departure_city ON routes(departure_city);
 CREATE INDEX idx_routes_arrival_city ON routes(arrival_city);
 CREATE INDEX idx_flights_route_id ON flights(route_id);
 CREATE INDEX idx_seats_flight_id ON seats(flight_id);
-CREATE INDEX idx_seats_seat_class_id ON seats(seat_class_id);
 CREATE INDEX idx_bookings_user_id ON bookings(user_id);

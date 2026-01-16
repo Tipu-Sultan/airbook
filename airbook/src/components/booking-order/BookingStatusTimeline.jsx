@@ -22,7 +22,7 @@ function BookingStatusTimeline({ status }) {
         <div className="flex-1 text-center">
           <div
             className={`h-3 w-3 rounded-full ${
-              status === 'cancelled' ? 'bg-red-600' : 'bg-gray-300'
+              status === 'canceled' ? 'bg-red-600' : 'bg-gray-300'
             } mx-auto mb-2`}
             data-testid="canceled-dot"
           ></div>

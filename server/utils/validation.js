@@ -36,6 +36,7 @@ const Joi = require('joi');
        departure_time: Joi.date().iso().required(),
        arrival_time: Joi.date().iso().required(),
        total_seats: Joi.number().integer().min(1).required(),
+       available_seats: Joi.number().integer().min(0).required(),
      });
      return schema.validate(data);
    };

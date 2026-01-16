@@ -1,3 +1,9 @@
+// Updated Book.jsx - Single booking request with seats array in payload
+// - Assumes backend handles seats: [...] and creates a group booking (single booking_id, total price)
+// - Single payment flow
+// - Re-checks availability before booking
+// - Passes count and totalPrice to BookingForm
+
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,14 +20,12 @@ function Book() {
   const { FlightId } = useParams();
   const [flight, setFlight] = useState(null);
   const [seats, setSeats] = useState([]);
-  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [selectedSeats, setSelectedSeats] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [bookingStatus, setBookingStatus] = useState(null);
   const { token, user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Load Razorpay SDK
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -46,7 +50,7 @@ function Book() {
         }
         setFlight(data.flight);
         setSeats(data.seats || []);
-        setSelectedSeat(null);
+        setSelectedSeats([]);
       } catch (err) {
         setError(
           err.message.includes('404')
@@ -61,32 +65,44 @@ function Book() {
   }, [FlightId]);
 
   const handleSeatClick = (seat) => {
-    if (!seat.is_booked) {
-      setSelectedSeat(seat.seat_number);
+    if (seat.is_booked) return;
+    setError('');
+    const num = seat.seat_number;
+    if (selectedSeats.includes(num)) {
+      setSelectedSeats(prev => prev.filter(s => s !== num));
+    } else {
+      if (selectedSeats.length >= 5) {
+        setError('You can select a maximum of 5 seats');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+      setSelectedSeats(prev => [...prev, num]);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!FlightId || !selectedSeat) {
-      throw new Error('Please select a seat');
+  const handleBookSeats = async () => {
+    if (selectedSeats.length === 0) {
+      throw new Error('Please select at least one seat');
     }
-    setBookingStatus('pending');
-    try {
-      const selectedSeatData = seats.find(
-        (seat) => seat.seat_number === selectedSeat
-      );
-      const booking = await bookFlight({
-        flightNumber: flight?.flight_number,
-        flightId: FlightId,
-        seatNumber: selectedSeat,
-        seatClassName: selectedSeatData.class_name,
-      });
-      setBookingStatus(null);
-      return booking;
-    } catch (err) {
-      setBookingStatus(null);
-      throw new Error(err.message || 'Booking failed. Please try again.');
-    }
+
+    const seatsData = selectedSeats.map(seatNum => {
+      const seat = seats.find(s => s.seat_number === seatNum);
+      if (!seat || seat.is_booked) {
+        throw new Error(`Seat ${seatNum} is no longer available`);
+      }
+      return {
+        seatNumber: seatNum,
+        seatClassName: seat.class_name,
+      };
+    });
+
+    const booking = await bookFlight({
+      flightNumber: flight?.flight_number,
+      flightId: FlightId,
+      seats: seatsData,
+    });
+
+    return booking;
   };
 
   if (!token || !user) {
@@ -105,25 +121,32 @@ function Book() {
 
   const seatsByClass = seats.reduce(
     (acc, seat) => {
-      const className = seat.class_name.toLowerCase();
-      if (!acc[className]) acc[className] = {};
-      const row = seat.seat_number[0];
-      if (!acc[className][row]) acc[className][row] = [];
-      acc[className][row].push(seat);
+      if (!seat || !seat.seat_number || !seat.class_name) {
+        return acc;
+      }
+      const className = seat.class_name.toLowerCase().trim();
+      const normalizedClass = ['first', 'business', 'economy'].includes(className)
+        ? className
+        : 'economy';
+
+      if (!acc[normalizedClass]) acc[normalizedClass] = {};
+
+      const rowMatch = seat.seat_number.match(/^\d+/);
+      const row = rowMatch ? rowMatch[0] : (seat.seat_number[0] || '1');
+
+      if (!acc[normalizedClass][row]) acc[normalizedClass][row] = [];
+      acc[normalizedClass][row].push(seat);
       return acc;
     },
     { first: {}, business: {}, economy: {} }
   );
 
-  const bookingData = {
-    bookingId: '',
-    userId: user.userId,
-    userEmail: user.email,
-    userPhone: user.phone || '9999999999',
-    flightNumber: flight?.flight_number,
-    flightId: FlightId,
-    seatNumber: selectedSeat,
-  };
+  let totalAvailableSeats = seats.filter(seat => !seat.is_booked).length;
+
+  const totalPrice = selectedSeats.reduce((sum, num) => {
+    const seat = seats.find(s => s.seat_number === num);
+    return seat ? sum + (flight?.base_price || 0) * seat.price_multiplier : sum;
+  }, 0);
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
@@ -146,33 +169,64 @@ function Book() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="text-red-600 text-sm sm:text-base mb-4 sm:mb-6 text-center font-medium"
+                  className="text-red-600 text-sm sm:text-base mb-4 text-center font-medium"
                 >
                   {error}
                 </motion.p>
               )}
-              {bookingStatus === 'confirmed' && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-green-600 text-sm sm:text-base mb-4 sm:mb-6 text-center font-medium"
-                >
-                  Booking confirmed! Redirecting...
-                </motion.p>
-              )}
             </AnimatePresence>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
-              <FlightDetails flight={flight} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <FlightDetails flight={flight} totalAvailableSeats={totalAvailableSeats} />
               <SeatLegend />
             </div>
+
             <BookingForm
-              onSubmit={handleSubmit}
-              disabled={!FlightId || !selectedSeat || bookingStatus === 'pending'}
-              bookingStatus={bookingStatus}
-              bookingData={bookingData}
+              onSubmit={handleBookSeats}
+              disabled={selectedSeats.length === 0}
+              bookingStatus={null}
               navigate={navigate}
+              flightNumber={flight?.flight_number}
+              count={selectedSeats.length}
+              totalPrice={totalPrice}
             >
-              <div className="space-y-6 sm:space-y-8">
+              {selectedSeats.length > 0 && (
+                <div className="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="text-xl font-bold text-blue-900 mb-4">
+                    Selected Seats ({selectedSeats.length}/5)
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedSeats.map((seatNum) => {
+                      const seat = seats.find(s => s.seat_number === seatNum);
+                      if (!seat) return null;
+                      const price = Math.round((flight?.base_price || 0) * seat.price_multiplier);
+                      return (
+                        <div key={seatNum} className="flex justify-between items-center">
+                          <span className="font-medium text-gray-800">
+                            {seatNum} <span className="text-gray-600">({seat.class_name})</span>
+                          </span>
+                          <span className="font-bold text-blue-700">₹{price}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t-2 border-blue-300 mt-6 pt-4">
+                    <div className="text-right text-2xl font-bold text-blue-900">
+                      Total: ₹{Math.round(totalPrice)}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-4 text-center">
+                    Click on a selected seat again to deselect it.
+                  </p>
+                </div>
+              )}
+
+              {selectedSeats.length === 0 && (
+                <p className="text-center text-gray-500 my-8 text-lg">
+                  Select up to 5 seats to proceed
+                </p>
+              )}
+
+              <div className="space-y-8">
                 {['first', 'business', 'economy'].map((classType) =>
                   Object.keys(seatsByClass[classType]).length > 0 ? (
                     <SeatSection
@@ -180,13 +234,13 @@ function Book() {
                       classType={classType}
                       seats={seatsByClass[classType]}
                       onSeatClick={handleSeatClick}
-                      selectedSeat={selectedSeat}
+                      selectedSeats={selectedSeats}
                       basePrice={flight?.base_price || 0}
                     />
                   ) : null
                 )}
                 {!seats.length && (
-                  <p className="text-gray-600 text-sm sm:text-base text-center">
+                  <p className="text-gray-600 text-center">
                     No seats available for this flight.
                   </p>
                 )}
