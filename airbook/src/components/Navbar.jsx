@@ -6,7 +6,7 @@ import { Menu, Plane, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function Navbar() {
-  const { token, setToken } = useContext(AuthContext);
+  const { token, user, setToken } = useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -24,15 +24,19 @@ function Navbar() {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/flights', label: 'Flights' },
-    ...(token
-      ? [
-          { to: '/profile', label: 'Profile' },
-        ]
-      : [
-          { to: '/login', label: 'Login' },
-          { to: '/register', label: 'Register' },
-        ]),
   ];
+
+  if (token && user) {
+    navLinks.push({ to: '/profile', label: 'Profile' });
+    if (user.user_type === 'Admin') {
+      navLinks.push({ to: '/admin-dashboard', label: 'Admin Dashboard' });
+    }
+  } else {
+    navLinks.push(
+      { to: '/login', label: 'Login' },
+      { to: '/register', label: 'Register' }
+    );
+  }
 
   return (
     <nav className="bg-blue-600 text-white py-4 px-4 sm:px-6 lg:px-8 sticky top-0 z-50 shadow-md">

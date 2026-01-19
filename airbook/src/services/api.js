@@ -143,3 +143,48 @@ export const getProfile = async () => {
     handleError(error);
   }
 };
+
+//admin services
+
+export const getAllFlights = async () => {
+  try {
+    const response = await api.get('/admin/flights');
+    return parseResponse(response);
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+export const getAllUsers = async () => {
+  try {
+    const response = await api.get('/admin/users');
+    return parseResponse(response);
+  } catch (error) {
+    handleError(error);
+  }
+};
+export const getAllRoutes = async () => {
+  try {
+    const response = await api.get('/admin/routes'); 
+    return parseResponse(response);
+  }
+  catch (error) {
+    handleError(error);
+  }
+};
+export const getAllBookings = async () => {
+  try {
+    const response = await api.get('/admin/bookings');
+    return parseResponse(response);
+  } catch (error) {
+    handleError(error);
+  }
+};
+export const addFlight = async (data) => {
+  try {
+    const response = await api.post('/admin/flights', data);
+    return parseResponse(response);
+  } catch (error) {
+    handleError(error);
+  } 
+};

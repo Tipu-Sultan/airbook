@@ -15,6 +15,7 @@ import FlightDetails from '../components/booking/FlightDetails';
 import SeatLegend from '../components/booking/SeatLegend';
 import SeatSection from '../components/booking/SeatSection';
 import BookingForm from '../components/booking/BookingForm';
+import { toast } from 'sonner';
 
 function Book() {
   const { FlightId } = useParams();
@@ -73,6 +74,7 @@ function Book() {
     } else {
       if (selectedSeats.length >= 5) {
         setError('You can select a maximum of 5 seats');
+        toast.error('You can select a maximum of 5 seats');
         setTimeout(() => setError(''), 5000);
         return;
       }

@@ -34,7 +34,7 @@ class UserModel {
   async findByEmail(email, connection = null) {
     const db = connection || this.pool;
     const [rows] = await db.query(
-      'SELECT user_id, email, password, first_name, last_name, created_at FROM users WHERE email = ?',
+      'SELECT user_id,user_type, email, password, first_name, last_name, created_at FROM users WHERE email = ?',
       [email]
     );
     return rows[0];
@@ -43,7 +43,7 @@ class UserModel {
   async findById(userId, connection = null) {
     const db = connection || this.pool;
     const [rows] = await db.query(
-      'SELECT user_id, email, first_name, last_name, created_at FROM users WHERE user_id = ?',
+      'SELECT user_id,user_type, email, first_name, last_name, created_at FROM users WHERE user_id = ?',
       [userId]
     );
     if (!rows[0]) {

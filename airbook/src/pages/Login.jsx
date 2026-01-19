@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AuthContext } from "../context/AuthContext";
 import { login } from "../services/api";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { toast } from "../hooks/use-toast";
+import { toast } from "sonner";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -30,20 +30,19 @@ function Login() {
       return;
     }
     setLoading(true);
+    setError("");
     try {
       const { token, user } = await login({ email, password });
       setToken(token);
       setUser(user);
-      // Navigate to the redirect URL or home page
-      navigate(redirectUrl, { replace: true });
+
+      // Admin users always go to dashboard
+      const destination = user.user_type === "Admin" ? "/admin-dashboard" : redirectUrl;
+      navigate(destination, { replace: true });
     } catch (err) {
-      setError(err.message || "Invalid credentials");
-      toast({
-        title: "Login Failed",
-        description: `${err.message || "Please check your credentials and try again."}`,
-        variant: "success",
-      });
-      
+      const errorMessage = err.message || "Invalid credentials";
+      setError(errorMessage);
+      toast.error('Login Failed', { description: errorMessage });
     } finally {
       setLoading(false);
     }

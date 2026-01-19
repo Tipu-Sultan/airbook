@@ -37,7 +37,7 @@ class AuthService {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
-    return { user: { userId: user.user_id, email, first_name: user.first_name, last_name: user.last_name }, token };
+    return { user: { userId: user.user_id, user_type: user.user_type, email, first_name: user.first_name, last_name: user.last_name }, token };
   }
 
   async getProfile(userId) {
